@@ -1,7 +1,7 @@
 use eyre::{eyre, Result};
 use gumdrop::Options;
 use obsidian_export::{postprocessors::*, ExportError};
-use obsidian_export::{Exporter, FrontmatterStrategy, WalkOptions};
+use obsidian_export::{Exporter, FrontmatterStrategy, LinkStrategy, WalkOptions};
 use std::{env, path::PathBuf};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -31,6 +31,15 @@ struct Opts {
         default = "auto"
     )]
     frontmatter_strategy: FrontmatterStrategy,
+
+    #[options(
+        help = "Link strategy (one of: encoded, none)",
+        no_short,
+        long = "link",
+        parse(try_from_str = "link_strategy_from_str"),
+        default = "encoded"
+    )]
+    link_strategy: LinkStrategy,
 
     #[options(
         no_short,
@@ -78,6 +87,14 @@ fn frontmatter_strategy_from_str(input: &str) -> Result<FrontmatterStrategy> {
     }
 }
 
+fn link_strategy_from_str(input: &str) -> Result<LinkStrategy> {
+    match input {
+        "encoded" => Ok(LinkStrategy::UrlEncoded),
+        "none" => Ok(LinkStrategy::NoEncode),
+        _ => Err(eyre!("must be one of: encoded, none")),
+    }
+}
+
 fn main() {
     // Due to the use of free arguments in Opts, we must bypass Gumdrop to determine whether the
     // version flag was specified. Without this, "missing required free argument" would get printed
@@ -100,6 +117,7 @@ fn main() {
 
     let mut exporter = Exporter::new(root, destination);
     exporter.frontmatter_strategy(args.frontmatter_strategy);
+    exporter.link_strategy(args.link_strategy);
     exporter.process_embeds_recursively(!args.no_recursive_embeds);
     exporter.walk_options(walk_options);
     exporter.wikilink_prefix(args.wikilink_prefix);
